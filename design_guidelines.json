@@ -1,0 +1,154 @@
+{
+  "theme": {
+    "mode": "light",
+    "description": "Cozy, hand-drawn/cartoon aesthetic with warm tones. The UI represents a 'cozy digital lounge' blending 2D canvas illustrations with tactile, rounded HTML overlays."
+  },
+  "typography": {
+    "headings": {
+      "family": "Fredoka, sans-serif",
+      "weight": "600",
+      "sizes": {
+        "h1": "text-4xl sm:text-5xl tracking-tight",
+        "h2": "text-2xl sm:text-3xl tracking-tight",
+        "h3": "text-xl sm:text-2xl tracking-tight"
+      },
+      "usage": "Use for all modal titles, character names, and floating labels."
+    },
+    "body": {
+      "family": "Nunito, sans-serif",
+      "weight": "400",
+      "sizes": {
+        "base": "text-base leading-relaxed",
+        "small": "text-sm leading-relaxed"
+      },
+      "usage": "Use for chat bubbles, control buttons, and subtext."
+    },
+    "instructions": "Import fonts from Google Fonts: @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&family=Nunito:wght@400;600;700&display=swap');"
+  },
+  "colors": {
+    "archetype": "Organic & Earthy mixed with Pastel & Soft",
+    "palette": {
+      "background": {
+        "cream": "#FDFBF7",
+        "wood": "#D7B586",
+        "warm_brown": "#8B5A2B"
+      },
+      "brand": {
+        "espresso": "#3E2723",
+        "chai_orange": "#E67E22",
+        "matcha": "#7CB342",
+        "boba_purple": "#5D4037"
+      },
+      "accents": {
+        "speech_bubble": "#FFFFFF",
+        "steam": "rgba(255, 255, 255, 0.7)"
+      },
+      "text": {
+        "primary": "#3E2723",
+        "secondary": "#5D4037",
+        "inverse": "#FDFBF7"
+      }
+    },
+    "rules": [
+      "Avoid pure black (#000000). Use 'espresso' (#3E2723) for dark text.",
+      "Avoid pure white backgrounds for main areas. Use 'cream' (#FDFBF7).",
+      "Use 'chai_orange' for primary actions and active states.",
+      "Never use full-screen gradients. Keep the background feeling like a painted or solid wood surface."
+    ]
+  },
+  "visual_enhancers": {
+    "surface_styles": {
+      "modals": "bg-[#FDFBF7] border-4 border-[#3E2723] rounded-[32px] shadow-[8px_8px_0px_#3E2723]",
+      "chat_panel": "bg-[#FDFBF7]/80 backdrop-blur-xl border-l-4 border-[#3E2723] shadow-[-8px_0_16px_rgba(62,39,35,0.1)]",
+      "control_bar": "bg-[#FDFBF7] border-4 border-[#3E2723] rounded-full shadow-[0_8px_0px_#3E2723] mb-8",
+      "chat_bubble": "bg-white border-2 border-[#3E2723] rounded-2xl rounded-bl-none shadow-[2px_2px_0px_#3E2723]"
+    },
+    "textures": "Use subtle noise overlays over the canvas to give it a 'paper' or 'lo-fi' feel."
+  },
+  "layouts": {
+    "main_screen": {
+      "type": "Full-screen relative wrapper",
+      "elements": [
+        {
+          "name": "Canvas layer",
+          "classes": "absolute inset-0 w-full h-full z-0 bg-[#D7B586]"
+        },
+        {
+          "name": "Live Chat Overlay",
+          "classes": "absolute top-0 right-0 h-full w-80 z-10 flex flex-col p-4"
+        },
+        {
+          "name": "Bottom Control Bar",
+          "classes": "absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-4 px-8 py-4"
+        }
+      ]
+    },
+    "startup_modal": {
+      "type": "Centered Neobrutalist overlay",
+      "classes": "fixed inset-0 z-50 flex items-center justify-center bg-[#3E2723]/60 backdrop-blur-sm p-4"
+    }
+  },
+  "components": [
+    {
+      "name": "AvatarSetupModal",
+      "description": "Form for user to enter name, select beverage, and customize avatar head.",
+      "ui_instructions": "Use chunky buttons for selection. Highlight selected items with a solid Chai Orange background and Espresso border."
+    },
+    {
+      "name": "LoungeCanvas",
+      "description": "HTML5 Canvas component using requestAnimationFrame.",
+      "ui_instructions": "Draw the central wooden table. Render avatars radially around the table center. Animate steam and floating emojis upwards from the avatars."
+    },
+    {
+      "name": "ChatPanel",
+      "description": "Real-time scrolling chat sidebar.",
+      "ui_instructions": "Render messages inside 'chat_bubble' style. Use 'flex-col-reverse' or auto-scroll to bottom."
+    },
+    {
+      "name": "ControlBar",
+      "description": "Island at the bottom of the screen with action buttons.",
+      "ui_instructions": "Buttons should have a 3D press effect: translate-y-1 and shadow reduction on active/click."
+    }
+  ],
+  "motion": {
+    "rules": [
+      "Buttons: hover:scale-105 active:scale-95 transition-transform duration-200",
+      "Modals: Framer motion pop-in (scale 0.9 to 1, opacity 0 to 1, spring stiffness 300)",
+      "Avatars (Canvas): Gentle floating animation (sine wave on Y axis).",
+      "Speech Bubbles/Emojis: Float up and fade out (y: -20, opacity: 0 over 2 seconds)"
+    ]
+  },
+  "media": {
+    "canvas_libraries": [
+      "Use raw HTML5 Canvas API for rendering the 2D lounge, table, and avatars.",
+      "Alternatively, use a lightweight wrapper if preferred, but raw 2D context is sufficient for basic shapes and images."
+    ],
+    "image_urls": {
+      "startup_background": {
+        "url": "https://images.unsplash.com/photo-1760434773841-7eef8a7af7c7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2MzR8MHwxfHNlYXJjaHwzfHxjb3p5JTIwY2FmZSUyMGludGVyaW9yJTIwaWxsdXN0cmF0aW9ufGVufDB8fHx8MTc4NzU5NTg3M3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Isometric cozy cafe background for the setup screen"
+      }
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure #3E2723 text passes WCAG AA against #FDFBF7 background.",
+    "testing": "All buttons, inputs, and canvas wrappers MUST include data-testid (e.g., data-testid='drink-button', data-testid='avatar-setup-form').",
+    "focus": "Add focus:ring-4 focus:ring-chai_orange to all interactive elements."
+  },
+  "instructions_to_main_agent": [
+    "Use HTML5 Canvas for the Lounge. The table and avatars should be drawn on the canvas context.",
+    "The UI (Chat, Controls, Setup Modal) should be built with React, HTML, and Tailwind overlaying the Canvas (using z-index).",
+    "Avatars can be simple 2D shapes (circles for heads, simple ears for animals) drawn directly via Canvas ctx.arc/ctx.bezierCurveTo to keep it lightweight.",
+    "Use WebSockets (e.g., standard WebSocket or Socket.io) for real-time state sync (positions, actions, chat). State should be kept in memory.",
+    "Simulate NPCs by running a setInterval that randomly triggers chat messages and 'drink' animations for 3 hardcoded bot users.",
+    "Include simple Web Audio API or HTML Audio for the 'slurp' sound effect when the drink action is triggered."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not center-align the app container. Text alignment should flow naturally.",
+    "Use generous spacing (p-6, p-8) for all modal contents.",
+    "Avoid generic SaaS gradients. Stick to the flat, solid, 'neobrutalist/clay' aesthetic defined in the surface styles.",
+    "Never use `transition: all`. Target specific properties (e.g., `transition: transform 0.2s, background-color 0.2s`).",
+    "Every interaction needs micro-animations. Static = dead.",
+    "Ensure the canvas is responsive. Handle window resize events to redraw the canvas content correctly."
+  ]
+}
