@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const ROOM = "lounge";
-
-function wsUrl() {
+function wsUrl(room) {
   const base = BACKEND_URL.replace(/^http/, "ws");
-  return `${base}/api/ws/${ROOM}`;
+  return `${base}/api/ws/${encodeURIComponent(room || "lounge")}`;
 }
 
 /**
@@ -29,12 +27,13 @@ export function useLounge(profile, handlers) {
     let retry = null;
 
     const connect = () => {
-      const ws = new WebSocket(wsUrl());
+      const ws = new WebSocket(wsUrl(profileRef.current?.room));
       wsRef.current = ws;
 
       ws.onopen = () => {
         setConnected(true);
-        ws.send(JSON.stringify({ type: "join", user: profileRef.current }));
+        const p = profileRef.current || {};
+        ws.send(JSON.stringify({ type: "join", user: { name: p.name, drink: p.drink, avatar: p.avatar } }));
       };
 
       ws.onmessage = (ev) => {
@@ -52,6 +51,8 @@ export function useLounge(profile, handlers) {
           handlersRef.current?.onChat?.(msg);
         } else if (msg.type === "action") {
           handlersRef.current?.onAction?.(msg);
+        } else if (msg.type === "typing") {
+          handlersRef.current?.onTyping?.(msg);
         }
       };
 
@@ -85,5 +86,12 @@ export function useLounge(profile, handlers) {
     }
   }, []);
 
-  return { connected, myId, roster, sendChat, sendAction };
+  const sendTyping = useCallback((active) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "typing", active: !!active }));
+    }
+  }, []);
+
+  return { connected, myId, roster, sendChat, sendAction, sendTyping };
 }

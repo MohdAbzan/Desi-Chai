@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Users, Wifi, WifiOff } from "lucide-react";
+import { Users, Wifi, WifiOff, Copy, Lock, DoorOpen } from "lucide-react";
+import { toast } from "sonner";
 import AvatarSetup from "./AvatarSetup";
 import LoungeCanvas from "./LoungeCanvas";
 import ChatPanel from "./ChatPanel";
 import ControlBar from "./ControlBar";
+import LofiRadio from "./LofiRadio";
 import { useLounge } from "./useLounge";
 import { makeNPCs, NPC_LINES, DRINKS } from "./theme";
 import { unlockAudio, playAction, SFX, setAudioEnabled } from "./audio";
@@ -17,6 +19,7 @@ export default function Lounge() {
       return {
         name: "Bo",
         drink: "chai",
+        room: "lounge",
         avatar: { head: "human", hairStyle: "short", hairColor: "#3E2723", outfitColor: "#E67E22", skinTone: "#F1C9A5", furColor: "#D7A86E" },
       };
     }
@@ -37,6 +40,7 @@ export default function Lounge() {
 
   const onChat = useCallback((msg) => {
     setMessages((prev) => [...prev.slice(-80), { ...msg, key: nextKey(), drink: drinkByIdRef.current[msg.id] }]);
+    canvasRef.current?.triggerTyping(msg.id, false);
     canvasRef.current?.triggerBubble(msg.id, msg.text);
     SFX.message();
   }, []);
@@ -46,7 +50,11 @@ export default function Lounge() {
     playAction(msg.action);
   }, []);
 
-  const { connected, myId, roster, sendChat, sendAction } = useLounge(profile, { onChat, onAction });
+  const onTyping = useCallback((msg) => {
+    canvasRef.current?.triggerTyping(msg.id, msg.active);
+  }, []);
+
+  const { connected, myId, roster, sendChat, sendAction, sendTyping } = useLounge(profile, { onChat, onAction, onTyping });
 
   // track drinks of real users for chat labels
   useEffect(() => {
@@ -66,9 +74,13 @@ export default function Lounge() {
       const n = npcs[Math.floor(Math.random() * npcs.length)];
       if (Math.random() < 0.55) {
         const line = NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)];
-        canvasRef.current?.triggerBubble(n.id, line);
-        setMessages((prev) => [...prev.slice(-80), { id: n.id, name: n.name, text: line, key: nextKey(), drink: n.drink }]);
-        SFX.message();
+        canvasRef.current?.triggerTyping(n.id, true);
+        setTimeout(() => {
+          canvasRef.current?.triggerTyping(n.id, false);
+          canvasRef.current?.triggerBubble(n.id, line);
+          setMessages((prev) => [...prev.slice(-80), { id: n.id, name: n.name, text: line, key: nextKey(), drink: n.drink }]);
+          SFX.message();
+        }, 1100);
       } else {
         const acts = ["drink", "cheers", "steam", "wave"];
         const a = acts[Math.floor(Math.random() * acts.length)];
@@ -84,10 +96,22 @@ export default function Lounge() {
     };
   }, [profile, npcs]);
 
+  useEffect(() => {
+    if (!profile) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", profile.room || "lounge");
+    window.history.replaceState({}, "", url);
+  }, [profile]);
+
   const handleJoin = (p) => {
     unlockAudio();
     SFX.join();
     setProfile(p);
+  };
+
+  const handleCopyInvite = () => {
+    navigator.clipboard?.writeText(window.location.href);
+    toast.success("Invite link copied — share it to invite friends ☕");
   };
 
   const handleAction = (action) => {
@@ -118,27 +142,49 @@ export default function Lounge() {
   if (!profile) return <AvatarSetup onJoin={handleJoin} />;
 
   const liveCount = roster.length;
+  const isPrivate = profile.room && profile.room !== "lounge";
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#D7B586]">
       <LoungeCanvas ref={canvasRef} users={users} />
 
-      {/* top-left status */}
-      <div
-        className="absolute top-4 left-4 z-20 flex items-center gap-2 px-4 py-2 bg-[#FDFBF7] border-2 border-[#3E2723] rounded-full shadow-[0_4px_0px_#3E2723]"
-        data-testid="lounge-status"
-      >
-        {connected ? (
-          <Wifi className="w-4 h-4 text-[#7CB342]" />
-        ) : (
-          <WifiOff className="w-4 h-4 text-[#EF5350]" />
-        )}
-        <span className="font-display font-semibold text-sm text-[#3E2723] flex items-center gap-1">
-          <Users className="w-4 h-4" /> {liveCount} {liveCount === 1 ? "guest" : "guests"}
-        </span>
+      {/* top-left HUD */}
+      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
+        <div
+          className="flex items-center gap-2 px-4 py-2 bg-[#FDFBF7] border-2 border-[#3E2723] rounded-full shadow-[0_4px_0px_#3E2723]"
+          data-testid="lounge-status"
+        >
+          {connected ? (
+            <Wifi className="w-4 h-4 text-[#7CB342]" />
+          ) : (
+            <WifiOff className="w-4 h-4 text-[#EF5350]" />
+          )}
+          <span className="font-display font-semibold text-sm text-[#3E2723] flex items-center gap-1">
+            <Users className="w-4 h-4" /> {liveCount} {liveCount === 1 ? "guest" : "guests"}
+          </span>
+        </div>
+
+        <button
+          onClick={handleCopyInvite}
+          data-testid="invite-btn"
+          title="Copy invite link"
+          className="clay-btn flex items-center gap-2 px-4 py-2 bg-[#FDFBF7] border-2 border-[#3E2723] rounded-full shadow-[0_4px_0px_#3E2723] hover:scale-105"
+        >
+          {isPrivate ? (
+            <Lock className="w-4 h-4 text-[#E67E22]" />
+          ) : (
+            <DoorOpen className="w-4 h-4 text-[#7CB342]" />
+          )}
+          <span className="font-display font-semibold text-sm text-[#3E2723] max-w-[140px] truncate">
+            {isPrivate ? profile.room : "Public Lounge"}
+          </span>
+          <Copy className="w-3.5 h-3.5 text-[#8B5A2B]" />
+        </button>
+
+        <LofiRadio />
       </div>
 
-      <ChatPanel messages={messages} onSend={handleSend} myId={myId} />
+      <ChatPanel messages={messages} onSend={handleSend} myId={myId} onTyping={sendTyping} />
       <ControlBar
         onAction={handleAction}
         drink={profile.drink}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Coffee, Sparkles } from "lucide-react";
+import { Coffee, Sparkles, DoorOpen, Lock } from "lucide-react";
 import AvatarPreview from "./AvatarPreview";
 import {
   DRINKS,
@@ -47,6 +47,8 @@ function Chip({ active, onClick, children, testid }) {
 
 export default function AvatarSetup({ onJoin }) {
   const [name, setName] = useState("");
+  const initialRoom = (new URLSearchParams(window.location.search).get("room") || "").trim();
+  const [room, setRoom] = useState(initialRoom === "lounge" ? "" : initialRoom);
   const [drink, setDrink] = useState("chai");
   const [head, setHead] = useState("human");
   const [hairStyle, setHairStyle] = useState("short");
@@ -61,8 +63,10 @@ export default function AvatarSetup({ onJoin }) {
   const submit = (e) => {
     e.preventDefault();
     const finalName = name.trim() || "Guest";
-    onJoin({ name: finalName, drink, avatar });
+    onJoin({ name: finalName, drink, avatar, room: room.trim() || "lounge" });
   };
+
+  const genCode = () => setRoom(Math.random().toString(36).slice(2, 8));
 
   return (
     <div
@@ -186,6 +190,35 @@ export default function AvatarSetup({ onJoin }) {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="mt-6 pt-5 border-t-2 border-dashed border-[#3E2723]/20">
+          <label className="font-display font-semibold text-[#3E2723] mb-1.5 flex items-center gap-1.5">
+            <DoorOpen className="w-4 h-4" /> Lounge room
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={room}
+              onChange={(e) => setRoom(e.target.value.replace(/\s+/g, "-").toLowerCase())}
+              maxLength={24}
+              placeholder="public lounge"
+              data-testid="room-input"
+              className="flex-1 px-4 py-3 rounded-xl bg-white border-2 border-[#3E2723] text-[#3E2723] placeholder:text-[#8B5A2B]/50 outline-none focus:ring-4 focus:ring-[#E67E22]/40 font-semibold"
+            />
+            <button
+              type="button"
+              onClick={genCode}
+              data-testid="create-room-btn"
+              className="clay-btn px-4 rounded-xl bg-[#7CB342] text-white border-2 border-[#3E2723] shadow-[2px_2px_0px_#3E2723] font-display font-semibold hover:scale-105 flex items-center gap-1.5"
+            >
+              <Lock className="w-4 h-4" /> Private
+            </button>
+          </div>
+          <p className="text-xs text-[#8B5A2B] mt-1.5 font-semibold">
+            {room
+              ? `You'll join room "${room}" — share the link afterwards to invite friends 🔒`
+              : "Leave blank to join the public lounge, or create a private room."}
+          </p>
         </div>
 
         <button

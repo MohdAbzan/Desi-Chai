@@ -25,19 +25,23 @@ Build a responsive, full-screen web app where users join a shared room, customiz
 5. 3 NPC bots that auto-chat and animate.
 
 ## Implemented (2026-06)
+### Iteration 1 — MVP
 - ✅ Setup modal with live avatar preview, name, 4 drinks, 4 heads, hair/skin/fur/outfit customization.
 - ✅ WebSocket multiplayer room with roster sync; cross-session chat verified.
 - ✅ Canvas lounge: table w/ candle, radial seating, per-avatar bob, drink/cheers/steam/wave animations, steam wisps, floating reaction emojis, canvas name+drink labels, animated speech bubbles.
 - ✅ Web Audio SFX (slurp, clink, steam, wave, message, join) + mute toggle.
 - ✅ 3 client-side NPCs with ambient chat/animations.
 - ✅ Connection/guest-count status indicator. `?demo=1` quick-join shortcut.
-- ✅ Tested: 11/11 backend WS tests, all frontend critical flows, multi-user sync.
+
+### Iteration 2 — Named Rooms, Lofi Radio, Typing Dots
+- ✅ **Named Rooms**: room field + "Private" code generator in setup; room encoded in `?room=` URL; invite button copies shareable link; private rooms are isolated (server per-room broadcast). Public vs private shown in HUD.
+- ✅ **Lofi Radio**: procedural Web-Audio lofi engine (chord pads + bass + vinyl crackle) with play/pause + volume knob in HUD.
+- ✅ **Typing Dots**: `typing` WS message (broadcast excludes sender); animated "…" bubble drawn over avatars while a user types; NPCs also show it before chatting.
+- ✅ Tested: 14/14 backend WS tests, all frontend critical flows incl. two-session same-room sync.
 
 ## Backlog (P1/P2)
-- P1: Persist optional room history / named rooms via URL.
-- P1: Emote wheel / more reactions; typing indicator.
-- P2: Server-authoritative NPCs shared across clients.
-- P2: Seat picking / drag avatars; ambient lo-fi music track.
+- P1: Emote wheel / more reactions.
+- P2: Server-authoritative NPCs shared across clients; seat picking / drag avatars.
 
 ## Next Tasks
 - Awaiting user feedback on visuals & feature depth.

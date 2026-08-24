@@ -522,6 +522,45 @@ function drawEmojis(ctx, pos, st, t) {
   }
 }
 
+function drawTyping(ctx, pos, user, st, t) {
+  if (!st.typing) return;
+  if (t - st.typing.born > 8) {
+    st.typing = null;
+    return;
+  }
+  const { x, y, s } = pos;
+  const phase = hash(user.id) % 100;
+  const bob = Math.sin(t * 1.8 + phase) * 3 * s;
+  const bw = 48 * s;
+  const bh = 26 * s;
+  const bx = x - bw / 2;
+  const by = y + bob - 150 * s - bh;
+  ctx.save();
+  ctx.fillStyle = "#fff";
+  roundRect(ctx, bx, by, bw, bh, 13 * s);
+  ctx.fill();
+  ctx.strokeStyle = COLORS.espresso;
+  ctx.lineWidth = 2.5 * s;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - 6 * s, by + bh - 1);
+  ctx.lineTo(x, by + bh + 9 * s);
+  ctx.lineTo(x + 6 * s, by + bh - 1);
+  ctx.closePath();
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.stroke();
+  for (let i = 0; i < 3; i++) {
+    const a = 0.35 + 0.65 * ((Math.sin(t * 6 - i * 0.9) + 1) / 2);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = COLORS.warmBrown;
+    ctx.beginPath();
+    ctx.arc(x + (i - 1) * 11 * s, by + bh / 2, 3.2 * s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function computePositions(users, w, h) {
   const n = users.length;
   const cx = w / 2;
@@ -566,6 +605,10 @@ const LoungeCanvas = forwardRef(function LoungeCanvas({ users }, ref) {
       const st = stateFor(id);
       st.bubble = { text, born: performance.now() / 1000 };
     },
+    triggerTyping(id, active) {
+      const st = stateFor(id);
+      st.typing = active ? { born: performance.now() / 1000 } : null;
+    },
   }));
 
   useEffect(() => {
@@ -602,6 +645,7 @@ const LoungeCanvas = forwardRef(function LoungeCanvas({ users }, ref) {
         drawLabel(ctx, pos, pos.user, t);
         drawEmojis(ctx, pos, st, t);
         drawBubble(ctx, pos, pos.user, st, t);
+        if (!st.bubble) drawTyping(ctx, pos, pos.user, st, t);
       }
 
       raf = requestAnimationFrame(loop);

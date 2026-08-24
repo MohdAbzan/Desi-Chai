@@ -8,7 +8,12 @@ import websockets
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL") or "https://brew-together-1.preview.emergentagent.com"
 BASE_URL = BASE_URL.rstrip("/")
-WS_URL = BASE_URL.replace("https://", "wss://").replace("http://", "ws://") + "/api/ws/lounge"
+WS_BASE = BASE_URL.replace("https://", "wss://").replace("http://", "ws://") + "/api/ws"
+WS_URL = WS_BASE + "/lounge"
+
+
+def ws_for(room):
+    return f"{WS_BASE}/{room}"
 
 
 # ---------------- REST sanity ----------------
@@ -156,3 +161,101 @@ async def test_two_clients_chat_and_disconnect_roster():
         except Exception:
             pass
         await b.close()
+
+
+# ---------------- Iteration 2: Named rooms + typing ----------------
+import uuid as _uuid
+
+@pytest.mark.asyncio
+async def test_rooms_are_isolated():
+    room_a = f"test-{_uuid.uuid4().hex[:8]}"
+    room_b = f"test-{_uuid.uuid4().hex[:8]}"
+    a = await websockets.connect(ws_for(room_a))
+    b = await websockets.connect(ws_for(room_b))
+    try:
+        await recv_until(a, "welcome")
+        await recv_until(b, "welcome")
+        await a.send(json.dumps({"type": "join", "user": {"name": "TEST_RoomA"}}))
+        await recv_until(a, "roster")
+        await b.send(json.dumps({"type": "join", "user": {"name": "TEST_RoomB"}}))
+        await recv_until(b, "roster")
+        # Drain any additional buffered messages on both sides
+        for _ws in (a, b):
+            while True:
+                try:
+                    await asyncio.wait_for(_ws.recv(), timeout=0.4)
+                except asyncio.TimeoutError:
+                    break
+        # Send chat in room A; B should NOT receive it
+        await a.send(json.dumps({"type": "chat", "text": "isolated msg"}))
+        await recv_until(a, "chat")  # sender gets it
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(b.recv(), timeout=1.5)
+    finally:
+        await a.close(); await b.close()
+
+
+@pytest.mark.asyncio
+async def test_same_room_sees_each_other():
+    room = f"test-{_uuid.uuid4().hex[:8]}"
+    a = await websockets.connect(ws_for(room))
+    b = await websockets.connect(ws_for(room))
+    try:
+        await recv_until(a, "welcome")
+        await recv_until(b, "welcome")
+        await a.send(json.dumps({"type": "join", "user": {"name": "TEST_SameA"}}))
+        await recv_until(a, "roster")
+        await b.send(json.dumps({"type": "join", "user": {"name": "TEST_SameB"}}))
+        # Drain until both users are on B's roster
+        names_b = []
+        for _ in range(5):
+            r = await recv_until(b, "roster")
+            names_b = [u["name"] for u in r["users"]]
+            if "TEST_SameA" in names_b and "TEST_SameB" in names_b:
+                break
+        assert "TEST_SameA" in names_b and "TEST_SameB" in names_b
+        # A sends chat, B receives
+        await a.send(json.dumps({"type": "chat", "text": "same-room hello"}))
+        msg = await recv_until(b, "chat")
+        assert msg["text"] == "same-room hello"
+    finally:
+        await a.close(); await b.close()
+
+
+@pytest.mark.asyncio
+async def test_typing_broadcast_excludes_sender():
+    room = f"test-{_uuid.uuid4().hex[:8]}"
+    a = await websockets.connect(ws_for(room))
+    b = await websockets.connect(ws_for(room))
+    try:
+        await recv_until(a, "welcome")
+        await recv_until(b, "welcome")
+        await a.send(json.dumps({"type": "join", "user": {"name": "TEST_TypeA"}}))
+        await recv_until(a, "roster")
+        await b.send(json.dumps({"type": "join", "user": {"name": "TEST_TypeB"}}))
+        # drain rosters
+        for _ in range(3):
+            try:
+                await asyncio.wait_for(a.recv(), timeout=0.5)
+            except asyncio.TimeoutError:
+                break
+        for _ in range(3):
+            try:
+                await asyncio.wait_for(b.recv(), timeout=0.5)
+            except asyncio.TimeoutError:
+                break
+        # A sends typing true -> B should receive; A should not echo
+        await a.send(json.dumps({"type": "typing", "active": True}))
+        t = await recv_until(b, "typing")
+        assert t["active"] is True
+        assert t["name"] == "TEST_TypeA"
+        assert "id" in t
+        # Sender A should NOT get its own echo
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(a.recv(), timeout=1.0)
+        # active:false forwarded too
+        await a.send(json.dumps({"type": "typing", "active": False}))
+        t2 = await recv_until(b, "typing")
+        assert t2["active"] is False
+    finally:
+        await a.close(); await b.close()

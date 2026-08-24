@@ -2,13 +2,37 @@ import { useEffect, useRef, useState } from "react";
 import { Send, MessageCircle } from "lucide-react";
 import { DRINKS } from "./theme";
 
-export default function ChatPanel({ messages, onSend, myId }) {
+export default function ChatPanel({ messages, onSend, myId, onTyping }) {
   const [text, setText] = useState("");
   const endRef = useRef(null);
+  const typingStopRef = useRef(null);
+  const lastTypeRef = useRef(0);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    setText(v);
+    if (!onTyping) return;
+    if (v.trim()) {
+      const now = Date.now();
+      if (now - lastTypeRef.current > 1500) {
+        onTyping(true);
+        lastTypeRef.current = now;
+      }
+      clearTimeout(typingStopRef.current);
+      typingStopRef.current = setTimeout(() => {
+        onTyping(false);
+        lastTypeRef.current = 0;
+      }, 2200);
+    } else {
+      clearTimeout(typingStopRef.current);
+      onTyping(false);
+      lastTypeRef.current = 0;
+    }
+  };
 
   const submit = (e) => {
     e.preventDefault();
@@ -16,6 +40,9 @@ export default function ChatPanel({ messages, onSend, myId }) {
     if (!v) return;
     onSend(v);
     setText("");
+    clearTimeout(typingStopRef.current);
+    onTyping?.(false);
+    lastTypeRef.current = 0;
   };
 
   return (
@@ -62,7 +89,7 @@ export default function ChatPanel({ messages, onSend, myId }) {
       <form onSubmit={submit} className="mt-3 flex gap-2" data-testid="chat-form">
         <input
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={handleChange}
           maxLength={280}
           placeholder="Type a message…"
           data-testid="chat-input"

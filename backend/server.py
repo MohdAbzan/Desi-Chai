@@ -147,6 +147,15 @@ async def lounge_ws(websocket: WebSocket, room_name: str):
                         "action": action,
                     })
 
+            elif mtype == "typing":
+                u = room.members[client_id].get("user") or {}
+                await manager.broadcast(room_name, {
+                    "type": "typing",
+                    "id": client_id,
+                    "name": u.get("name", "Guest"),
+                    "active": bool(data.get("active")),
+                }, exclude=client_id)
+
     except WebSocketDisconnect:
         pass
     except Exception as e:
