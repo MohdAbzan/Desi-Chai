@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Users, Wifi, WifiOff, Copy, Lock, DoorOpen } from "lucide-react";
+import { Users, Wifi, WifiOff, Copy, Lock, DoorOpen, ZoomIn, ZoomOut, MessageCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import AvatarSetup from "./AvatarSetup";
 import LoungeCanvas from "./LoungeCanvas";
@@ -27,6 +27,7 @@ export default function Lounge() {
   });
   const [messages, setMessages] = useState([]);
   const [audioOn, setAudioOn] = useState(true);
+  const [chatOpen, setChatOpen] = useState(true);
   const canvasRef = useRef(null);
   const npcs = useMemo(() => makeNPCs(), []);
   const drinkByIdRef = useRef({});
@@ -54,7 +55,7 @@ export default function Lounge() {
     canvasRef.current?.triggerTyping(msg.id, msg.active);
   }, []);
 
-  const { connected, myId, roster, sendChat, sendAction, sendTyping } = useLounge(profile, { onChat, onAction, onTyping });
+  const { connected, myId, roster, sendChat, sendAction, sendTyping, sendSeat } = useLounge(profile, { onChat, onAction, onTyping });
 
   // track drinks of real users for chat labels
   useEffect(() => {
@@ -103,6 +104,20 @@ export default function Lounge() {
     window.history.replaceState({}, "", url);
   }, [profile]);
 
+  // Auto-pick a free seat on join
+  useEffect(() => {
+    if (!myId) return;
+    const me = roster.find((u) => u.id === myId);
+    if (!me || typeof me.seat === "number") return;
+    const taken = new Set(npcs.map((n) => n.seat));
+    roster.forEach((u) => {
+      if (typeof u.seat === "number") taken.add(u.seat);
+    });
+    let seat = 0;
+    while (seat < 10 && taken.has(seat)) seat++;
+    if (seat < 10) sendSeat(seat);
+  }, [roster, myId, npcs, sendSeat]);
+
   const handleJoin = (p) => {
     unlockAudio();
     SFX.join();
@@ -129,6 +144,10 @@ export default function Lounge() {
     sendChat(text);
   };
 
+  const handlePickSeat = (seatIndex) => {
+    sendSeat(seatIndex);
+  };
+
   const toggleAudio = () => {
     const v = !audioOn;
     setAudioOn(v);
@@ -146,7 +165,7 @@ export default function Lounge() {
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#D7B586]">
-      <LoungeCanvas ref={canvasRef} users={users} />
+      <LoungeCanvas ref={canvasRef} users={users} onPickSeat={handlePickSeat} />
 
       {/* top-left HUD */}
       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 items-start">
@@ -182,9 +201,50 @@ export default function Lounge() {
         </button>
 
         <LofiRadio />
+        <p className="text-xs font-semibold text-[#3E2723]/70 pl-2 max-w-[220px]">
+          Tap an empty chair to change your seat · scroll to zoom
+        </p>
       </div>
 
-      <ChatPanel messages={messages} onSend={handleSend} myId={myId} onTyping={sendTyping} />
+      {/* zoom controls */}
+      <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-2">
+        <button
+          onClick={() => canvasRef.current?.zoomIn()}
+          data-testid="zoom-in-btn"
+          title="Zoom in"
+          className="clay-btn w-11 h-11 rounded-full bg-[#FDFBF7] border-2 border-[#3E2723] shadow-[0_4px_0px_#3E2723] flex items-center justify-center text-[#3E2723] hover:scale-110"
+        >
+          <ZoomIn className="w-5 h-5" />
+        </button>
+        <button
+          onClick={() => canvasRef.current?.zoomOut()}
+          data-testid="zoom-out-btn"
+          title="Zoom out"
+          className="clay-btn w-11 h-11 rounded-full bg-[#FDFBF7] border-2 border-[#3E2723] shadow-[0_4px_0px_#3E2723] flex items-center justify-center text-[#3E2723] hover:scale-110"
+        >
+          <ZoomOut className="w-5 h-5" />
+        </button>
+      </div>
+
+      {chatOpen ? (
+        <ChatPanel
+          messages={messages}
+          onSend={handleSend}
+          myId={myId}
+          onTyping={sendTyping}
+          onMinimize={() => setChatOpen(false)}
+        />
+      ) : (
+        <button
+          onClick={() => setChatOpen(true)}
+          data-testid="chat-open-btn"
+          title="Open chat"
+          className="clay-btn absolute top-4 right-4 z-20 flex items-center gap-2 px-4 py-3 bg-[#E67E22] text-white border-2 border-[#3E2723] rounded-full shadow-[0_4px_0px_#3E2723] hover:scale-105 font-display font-semibold"
+        >
+          <MessageCircle className="w-5 h-5" /> Chat
+        </button>
+      )}
+
       <ControlBar
         onAction={handleAction}
         drink={profile.drink}

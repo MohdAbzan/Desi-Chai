@@ -64,6 +64,7 @@ export function makeNPCs() {
       name: "Mocha",
       drink: "espresso",
       isNPC: true,
+      seat: 0,
       avatar: { head: "bear", hairStyle: "short", hairColor: "#3E2723", outfitColor: "#8D6E63", skinTone: "#F1C9A5", furColor: "#8D6E63" },
     },
     {
@@ -71,6 +72,7 @@ export function makeNPCs() {
       name: "Luna",
       drink: "matcha",
       isNPC: true,
+      seat: 4,
       avatar: { head: "cat", hairStyle: "short", hairColor: "#111", outfitColor: "#7CB342", skinTone: "#E0AC69", furColor: "#B0BEC5" },
     },
     {
@@ -78,6 +80,7 @@ export function makeNPCs() {
       name: "Pip",
       drink: "boba",
       isNPC: true,
+      seat: 7,
       avatar: { head: "bunny", hairStyle: "short", hairColor: "#A1887F", outfitColor: "#EC407A", skinTone: "#FFDBAC", furColor: "#F5F0E6" },
     },
   ];

@@ -147,6 +147,14 @@ async def lounge_ws(websocket: WebSocket, room_name: str):
                         "action": action,
                     })
 
+            elif mtype == "seat":
+                seat = data.get("seat")
+                if isinstance(seat, int) and 0 <= seat < 32:
+                    u = room.members[client_id].get("user")
+                    if u is not None:
+                        u["seat"] = seat
+                        await manager.broadcast(room_name, {"type": "roster", "users": room.roster()})
+
             elif mtype == "typing":
                 u = room.members[client_id].get("user") or {}
                 await manager.broadcast(room_name, {

@@ -93,5 +93,12 @@ export function useLounge(profile, handlers) {
     }
   }, []);
 
-  return { connected, myId, roster, sendChat, sendAction, sendTyping };
+  const sendSeat = useCallback((seat) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "seat", seat }));
+    }
+  }, []);
+
+  return { connected, myId, roster, sendChat, sendAction, sendTyping, sendSeat };
 }

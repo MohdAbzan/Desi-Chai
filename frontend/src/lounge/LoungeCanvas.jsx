@@ -561,33 +561,110 @@ function drawTyping(ctx, pos, user, st, t) {
   ctx.restore();
 }
 
-function computePositions(users, w, h) {
-  const n = users.length;
-  const cx = w / 2;
-  const cy = h * 0.60;
-  const rx = Math.min(w * 0.30, 430);
-  const ry = rx * 0.44;
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const angle = Math.PI / 2 + (i / n) * Math.PI * 2;
-    const px = cx + rx * Math.cos(angle);
-    const py = cy + ry * Math.sin(angle);
-    const depth = (Math.sin(angle) + 1) / 2; // 0 back, 1 front
-    const s = (0.8 + depth * 0.4) * Math.min(1.15, Math.max(0.7, w / 1200));
-    out.push({ user: users[i], x: px, y: py, s, sortY: py, leanDir: Math.sign(cx - px) || 1 });
+function drawChair(ctx, seat, highlighted, t) {
+  const { x, y, s } = seat;
+  ctx.save();
+  ctx.translate(x, y);
+  // shadow
+  ctx.fillStyle = "rgba(62,39,35,0.12)";
+  ctx.beginPath();
+  ctx.ellipse(0, 16 * s, 34 * s, 10 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // backrest
+  ctx.fillStyle = highlighted ? "#E8B57A" : COLORS.woodDark;
+  roundRect(ctx, -22 * s, -40 * s, 44 * s, 22 * s, 8 * s);
+  ctx.fill();
+  ctx.strokeStyle = COLORS.espresso;
+  ctx.lineWidth = 2.5 * s;
+  ctx.stroke();
+  // seat cushion
+  ctx.fillStyle = highlighted ? "#F0C089" : COLORS.warmBrown;
+  roundRect(ctx, -30 * s, -4 * s, 60 * s, 18 * s, 8 * s);
+  ctx.fill();
+  ctx.stroke();
+  if (highlighted) {
+    const pulse = 1 + Math.sin(t * 6) * 0.08;
+    ctx.save();
+    ctx.scale(pulse, pulse);
+    ctx.fillStyle = COLORS.chaiOrange;
+    ctx.beginPath();
+    ctx.arc(0, -54 * s, 13 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = COLORS.espresso;
+    ctx.lineWidth = 2.5 * s;
+    ctx.stroke();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 3 * s;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-6 * s, -54 * s);
+    ctx.lineTo(6 * s, -54 * s);
+    ctx.moveTo(0, -60 * s);
+    ctx.lineTo(0, -48 * s);
+    ctx.stroke();
+    ctx.restore();
   }
-  return { table: { cx, cy, rx, ry }, avatars: out };
+  ctx.restore();
 }
 
-const LoungeCanvas = forwardRef(function LoungeCanvas({ users }, ref) {
+const N_SEATS = 10;
+
+function computeSeatLayout(w, h) {
+  const cx = w / 2;
+  const cy = h * 0.6;
+  const rx = Math.min(w * 0.3, 430);
+  const ry = rx * 0.44;
+  const scaleBase = Math.min(1.15, Math.max(0.7, w / 1200));
+  const seats = [];
+  for (let i = 0; i < N_SEATS; i++) {
+    const angle = Math.PI / 2 + (i / N_SEATS) * Math.PI * 2;
+    const px = cx + rx * Math.cos(angle);
+    const py = cy + ry * Math.sin(angle);
+    const depth = (Math.sin(angle) + 1) / 2;
+    const s = (0.8 + depth * 0.4) * scaleBase;
+    seats.push({ index: i, x: px, y: py, s, sortY: py, leanDir: Math.sign(cx - px) || 1 });
+  }
+  return { table: { cx, cy, rx, ry }, seats };
+}
+
+function assignOccupancy(users) {
+  const occupied = {};
+  const unplaced = [];
+  for (const u of users) {
+    if (typeof u.seat === "number" && u.seat >= 0 && u.seat < N_SEATS && occupied[u.seat] === undefined) {
+      occupied[u.seat] = u;
+    } else {
+      unplaced.push(u);
+    }
+  }
+  let free = 0;
+  for (const u of unplaced) {
+    while (free < N_SEATS && occupied[free] !== undefined) free++;
+    if (free < N_SEATS) occupied[free] = u;
+  }
+  return occupied;
+}
+
+const LoungeCanvas = forwardRef(function LoungeCanvas({ users, onPickSeat }, ref) {
   const canvasRef = useRef(null);
   const usersRef = useRef(users);
   const animRef = useRef({}); // id -> state
+  const zoomRef = useRef(1);
+  const mouseRef = useRef(null); // world coords {x,y}
+  const seatsRef = useRef([]); // last computed seats
+  const occupiedRef = useRef({});
+  const hoverSeatRef = useRef(-1);
+  const onPickSeatRef = useRef(onPickSeat);
   usersRef.current = users;
+  onPickSeatRef.current = onPickSeat;
 
   const stateFor = (id) => {
     if (!animRef.current[id]) animRef.current[id] = { emojis: [] };
     return animRef.current[id];
+  };
+
+  const setZoom = (z) => {
+    zoomRef.current = Math.max(0.6, Math.min(2, z));
   };
 
   useImperativeHandle(ref, () => ({
@@ -609,6 +686,15 @@ const LoungeCanvas = forwardRef(function LoungeCanvas({ users }, ref) {
       const st = stateFor(id);
       st.typing = active ? { born: performance.now() / 1000 } : null;
     },
+    zoomIn() {
+      setZoom(zoomRef.current + 0.2);
+    },
+    zoomOut() {
+      setZoom(zoomRef.current - 0.2);
+    },
+    resetZoom() {
+      setZoom(1);
+    },
   }));
 
   useEffect(() => {
@@ -619,35 +705,107 @@ const LoungeCanvas = forwardRef(function LoungeCanvas({ users }, ref) {
 
     const resize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
+      canvas.width = canvas.clientWidth * dpr;
+      canvas.height = canvas.clientHeight * dpr;
     };
     resize();
     window.addEventListener("resize", resize);
 
+    const screenToWorld = (px, py) => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const z = zoomRef.current;
+      return { x: (px - w / 2) / z + w / 2, y: (py - h / 2) / z + h / 2 };
+    };
+
+    const nearestEmptySeat = (wx, wy) => {
+      let best = -1;
+      let bestD = Infinity;
+      for (const seat of seatsRef.current) {
+        if (occupiedRef.current[seat.index]) continue;
+        const dx = wx - seat.x;
+        const dy = wy - (seat.y - 20 * seat.s);
+        const d = dx * dx + dy * dy;
+        const thr = 60 * seat.s;
+        if (d < thr * thr && d < bestD) {
+          bestD = d;
+          best = seat.index;
+        }
+      }
+      return best;
+    };
+
+    const onMove = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const wpt = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+      mouseRef.current = wpt;
+      const seat = nearestEmptySeat(wpt.x, wpt.y);
+      hoverSeatRef.current = seat;
+      canvas.style.cursor = seat >= 0 ? "pointer" : "default";
+    };
+    const onLeave = () => {
+      mouseRef.current = null;
+      hoverSeatRef.current = -1;
+    };
+    const onClick = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const wpt = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+      const seat = nearestEmptySeat(wpt.x, wpt.y);
+      if (seat >= 0) onPickSeatRef.current?.(seat);
+    };
+    const onWheel = (e) => {
+      e.preventDefault();
+      setZoom(zoomRef.current + (e.deltaY < 0 ? 0.1 : -0.1));
+    };
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseleave", onLeave);
+    canvas.addEventListener("click", onClick);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+
     const loop = () => {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
+      const z = zoomRef.current;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, w, h);
       const t = performance.now() / 1000;
 
       drawBackground(ctx, w, h);
-      const { table, avatars } = computePositions(usersRef.current, w, h);
+
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.scale(z, z);
+      ctx.translate(-w / 2, -h / 2);
+
+      const { table, seats } = computeSeatLayout(w, h);
+      const occupied = assignOccupancy(usersRef.current);
+      seatsRef.current = seats;
+      occupiedRef.current = occupied;
+
       drawTable(ctx, table.cx, table.cy, table.rx, table.ry);
 
-      const sorted = [...avatars].sort((a, b) => a.sortY - b.sortY);
-      for (const pos of sorted) drawAvatar(ctx, pos, pos.user, stateFor(pos.user.id), t);
-      for (const pos of sorted) {
-        const st = stateFor(pos.user.id);
-        drawLabel(ctx, pos, pos.user, t);
+      const items = seats.map((seat) => ({ seat, user: occupied[seat.index] || null }));
+      const sorted = [...items].sort((a, b) => a.seat.sortY - b.seat.sortY);
+
+      for (const it of sorted) {
+        if (it.user) {
+          const pos = { x: it.seat.x, y: it.seat.y, s: it.seat.s, leanDir: it.seat.leanDir };
+          drawAvatar(ctx, pos, it.user, stateFor(it.user.id), t);
+        } else {
+          drawChair(ctx, it.seat, hoverSeatRef.current === it.seat.index, t);
+        }
+      }
+      for (const it of sorted) {
+        if (!it.user) continue;
+        const pos = { x: it.seat.x, y: it.seat.y, s: it.seat.s, leanDir: it.seat.leanDir };
+        const st = stateFor(it.user.id);
+        drawLabel(ctx, pos, it.user, t);
         drawEmojis(ctx, pos, st, t);
-        drawBubble(ctx, pos, pos.user, st, t);
-        if (!st.bubble) drawTyping(ctx, pos, pos.user, st, t);
+        drawBubble(ctx, pos, it.user, st, t);
+        if (!st.bubble) drawTyping(ctx, pos, it.user, st, t);
       }
 
+      ctx.restore();
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -655,6 +813,10 @@ const LoungeCanvas = forwardRef(function LoungeCanvas({ users }, ref) {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
+      canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mouseleave", onLeave);
+      canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("wheel", onWheel);
     };
   }, []);
 

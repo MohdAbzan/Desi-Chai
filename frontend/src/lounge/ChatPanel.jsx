@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, Minus } from "lucide-react";
 import { DRINKS } from "./theme";
 
-export default function ChatPanel({ messages, onSend, myId, onTyping }) {
+export default function ChatPanel({ messages, onSend, myId, onTyping, onMinimize }) {
   const [text, setText] = useState("");
   const endRef = useRef(null);
   const typingStopRef = useRef(null);
@@ -55,6 +55,16 @@ export default function ChatPanel({ messages, onSend, myId, onTyping }) {
           <MessageCircle className="w-5 h-5 text-white" />
         </div>
         <h2 className="font-display text-xl text-[#3E2723] font-semibold">Lounge Chat</h2>
+        {onMinimize && (
+          <button
+            onClick={onMinimize}
+            data-testid="chat-minimize-btn"
+            title="Minimize chat"
+            className="clay-btn ml-auto w-8 h-8 rounded-lg bg-white border-2 border-[#3E2723] shadow-[2px_2px_0px_#3E2723] flex items-center justify-center text-[#3E2723] hover:scale-105"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto chat-scroll pr-1 space-y-2.5" data-testid="chat-messages">
